@@ -48,7 +48,7 @@ def add_cost(update, context):
     chat = update.effective_chat
     user_id = update.effective_user.id
     text = update.message.text
-    amount, description = text.split()
+    amount, description = text.split(' ', 1)
     current_date = datetime.now().strftime("%d.%m.%Y")
     category = Payments.objects.filter(description__iregex=description)
     category = category.first().category if category else Category.objects.get(id=1)
@@ -247,7 +247,7 @@ def know_date(update, context):
     chat = update.effective_chat
     context.bot.send_message(
         chat_id=chat.id,
-        text=('Введите новую дату в формате "23.10" или "23.10.2023"')
+        text=('Введите дату в формате "23.10" или "23.10.2023"')
         )
     return SEE_DATE
 

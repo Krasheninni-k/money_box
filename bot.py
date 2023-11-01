@@ -232,12 +232,15 @@ def get_costs(update, context):
     start_date = datetime(current_date.year, current_date.month, 1)
     result = []
     queryset = Payments.objects.filter(date__gte=start_date, date__lte=current_date)
-    for payment in queryset:
-        result.append(f'📍{payment.date.strftime("%d.%m")} - {int(payment.amount)} - {payment.description} - {payment.category.title}')
-    message_text = '\n'.join(result)
-    context.bot.send_message(
-        chat_id=chat.id,
-        text=message_text)
+    if queryset.exists():
+        for payment in queryset:
+            result.append(f'📍{payment.date.strftime("%d.%m")} - {int(payment.amount)} - {payment.description} - {payment.category.title}')
+        message_text = '\n'.join(result)
+        context.bot.send_message(
+            chat_id=chat.id,
+            text=message_text)
+    else:
+        context.bot.send_message(chat_id=chat.id, text='В этом месяце трат пока нет')
 
 
 def know_date(update, context):
@@ -270,13 +273,15 @@ def get_costs_date(update, context, date):
     target_date = datetime.strptime(target_date, date_format).date()
     result = []
     queryset = Payments.objects.filter(date=target_date)
-    for payment in queryset:
-        result.append(f'📍{payment.date.strftime("%d.%m")} - {int(payment.amount)} - {payment.description} - {payment.category.title}')
-    message_text = '\n'.join(result)
-    context.bot.send_message(
-        chat_id=chat.id,
-        text=message_text)
-
+    if queryset.exists():
+        for payment in queryset:
+            result.append(f'📍{payment.date.strftime("%d.%m")} - {int(payment.amount)} - {payment.description} - {payment.category.title}')
+        message_text = '\n'.join(result)
+        context.bot.send_message(
+            chat_id=chat.id,
+            text=message_text)
+    else:
+        context.bot.send_message(chat_id=chat.id, text='В этот день не было трат')
 
 # Вывод результатов текущего месяца по категориям по команде /categories
 def get_categories(update, context):
@@ -287,6 +292,7 @@ def get_categories(update, context):
     result = []
     queryset = Payments.objects.filter(date__gte=start_date, date__lte=current_date)
     costs = queryset.aggregate(sum=Sum('amount'))
+    costs = costs['sum'] if costs['sum'] else 0
     for category in categories:
         category_costs =  queryset.filter(category=category).aggregate(sum=Sum('amount'))
         costs_sum = category_costs['sum'] if category_costs['sum'] is not None else 0
@@ -294,7 +300,7 @@ def get_categories(update, context):
     message_text = '\n'.join(result)
     context.bot.send_message(
         chat_id=chat.id,
-        text=('Потрачено итого - {}\n{}').format(costs['sum'], message_text))
+        text=('Потрачено итого - {}\n{}').format(costs, message_text))
 
 
 # Вывод результатов текущего месяца по команде /result
@@ -320,12 +326,13 @@ def calculate_costs():
     costs = Payments.objects.filter(date__gte=start_date, date__lte=current_date).aggregate(
         sum=Sum('amount'))
     costs_sum = costs['sum']
+    costs_sum = float(costs_sum) if costs_sum else 0
 
     _, last_day = calendar.monthrange(current_date.year, current_date.month)
     end_date = datetime(current_date.year, current_date.month, last_day)
     days_in_month = (end_date - start_date + timedelta(days=1)).days
     days_passed = (current_date - start_date + timedelta(days=1)).days
-    reserve = int((TARGET * days_passed / days_in_month - float(costs_sum)))
+    reserve = int((TARGET * days_passed / days_in_month - costs_sum))
     return costs_sum, reserve
 
 
@@ -353,7 +360,7 @@ def main():
 
 
     conversation_handler_2 = ConversationHandler(
-        entry_points=[(MessageHandler(Filters.regex(r'^\d+\s[A-Za-z0-9]+$'), add_cost))],
+        entry_points=[(MessageHandler(Filters.text, add_cost))],
         states={
             CONFIRM: [CallbackQueryHandler(confirm, pattern='confirm'),
                       CallbackQueryHandler(edit, pattern='edit')],

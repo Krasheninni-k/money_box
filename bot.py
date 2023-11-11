@@ -83,7 +83,7 @@ def confirm(update, context):
     payment.save()
     update.callback_query.answer("Данные сохранены.")
     del user_data[user_id]
-    costs, reserve = calculate_costs()
+    costs, rest, reserve = calculate_costs()
     if reserve > 0:
         context.bot.send_message(
             chat_id=chat.id,
